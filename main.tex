@@ -17,6 +17,7 @@
     linkcolor=blue,
     filecolor=magenta,      
     urlcolor=cyan,
+    citecolor=blue,
     pdftitle={Overleaf Example},
     pdfpagemode=FullScreen,
     }
@@ -33,22 +34,31 @@
 \author{Avatar Azka - 47286238}
 \date{November 2023}
 
-\def\mylist#1 {\ifx!#1\else\makebox[4em][r]{#1} \expandafter\mylist\fi}
 \begin{document}
 
 \onecolumn
 \maketitle
-\tableofcontents
+{
+    \hypersetup{linkcolor=black}
+    \tableofcontents
+}
 
 \newpage
 \twocolumn
 \section{Notes}
+
 Aarøe et al. (2010) \cite{Aarøe2010} stated that the data had been standardised, however cursory examination of the data showed that the means and standard deviations of each feature did not match the expected values of standardised data (i.e. means were not equal to 0, standard deviations not equal to 1), which was odd. Thus, further Z-Score normalization was used to standardise the data. This was done in order to ensure all features are scaled similarly, such that features of different scales would not dominate (i.e. in PCA). 
 
 \section{1. (5 Marks) PCA on Gene Expression Dataset}
-Principal Component Analysis (PCA) was done on the dataset features to reduce the dimensions from 11217 genes to 121 principal components, which each represent a linear combination of the genes. 
+Principal Component Analysis (PCA) was done on the dataset features to reduce the dimensions from 11217 genes to 121 principal components, which each represent a linear combination of the genes.
+
+It is important to note that PCA does not take into account the output class when transforming the feature space. Indeed, in Figure \ref{fig:pp-pca}, we observe that the first 5 principal components by proportion of explained variance (which cumulatively explain $59\%$ of the data's variance) do not separate the classes as effectively as the methods described in later sections. The class distributions in each individual component, as well as pair-wise combinations of those components, exhibit much overlap between the normal and cancer classes. In the later sections, we will discuss other methods that better identify which genes are expressed differently between the normal and cancer groups.
 
 The detailed results of each principal component's direction in terms of the original features can be found in \path{supplementary/PrincipalComponentDirections.csv}, which is a commas-separated values file where each row represents a principal component in descending order of proportion of explained variance. The first column of the file represents the index of the principal component, whereas every columns afterwards represents the coefficients of each original feature of the dataset in the linear combination that results in the principal component.
+
+As for principal components that might be of interest to clinicians and scientists, that would require us to know which principal components best discriminate between normal and cancer classes, not just explain the greatest proportion of variance. To do this, Welch t-tests were conducted for each principal component to compare its significance with regards to the output class. The components were then sorted based on their p-values. These components and their direction with respect to the original genes are detailed in the file \path{supplementary/PrincipalComponentDirections.csv}. The first 10 of these principal components are likely to be of interest to clinicians and scientists to further explore the correlation between their expressions and breast cancer.
+
+To better visualize the separation between classes these principal components offer, Figure \ref{fig:pp-pca-significant} shows the class distributions for the top 5 principal components by order of significance according to their p-values. The class distributions in said figure show noticeably more separation compared to the top 5 principal components by order of proportion of explained variance, further reinforcing their significance to scientists and clinicians.
 
 \begin{figure}[H]
     \centering
@@ -66,31 +76,71 @@ The detailed results of each principal component's direction in terms of the ori
 
 
 \section{2. (4 Marks) Single Variable Analysis}
+Single Variable Analysis of this dataset was done by conducting Welch's t-tests on each feature for the two groups (i.e. normal and cancer) to calculate their $p$-values. Afterwards, the adjusted $p$-values were computed according to the Benjamini-Hochberg (1995) \cite{BenjaminiHochberg1995} procedure.
+
+Exploratory use of the Benjamini-Yekutieli (2001) procedure was done in this dataset, though the process returned no genes below the threshold at all. It should be noted that Benjamini-Yekutieli is more conservative compared to Benjamini-Hochberg
+
+As the output is binomial, with continuous explanatory variables, Welch's t-test is suitable in this case. While Welch's t-test assumes normality of the feature distributions, it is fairly robust to non-normality in this data of this size \href{https://edstem.org/au/courses/13108/discussion/1697987}{(Ed \#259)}
+
+The Benjamini-Hochberg procedure assumes independence or positive dependency between test statistics.
+
+TODO: revisit this
+
+TODO: Assumptions\\
+TODO: Met or not by dataset\\
+TODO: Consequences of violations\\
+
+The Benjamini-Hochberg procedure arranges the features based on ascending order of $p$-values, then computes a threshold, below which significant features are preserved. The threshold is defined as:
+
+\begin{align*}
+    P_{(j)} \leq FDR\cdot\frac{j}{m}
+\end{align*}
+
+Where $P_{(j)}$ represents the $p$-value of the $j$-th element in the ordered list of features, $FDR$ denotes the threshold for the False Discovery Rate we want to set, and $m$ is the total number of features we have. Figure \ref{fig:bh-threshold} visualises the Benjamini-Hochberg threshold versus the unadjusted $p$-values.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=\linewidth]{figures/SVA_Significant_Genes.png}
-    \caption{Genes ordered by $p$-values $p_(j)$, and the line $0.1\cdot(j/11,217)$, representing the adjusted $p$-value threshold for the Benjamini-Hochberg method. Here the threshold lies at $j=88$, where the vertical dotted line is drawn.}
+    \caption{Genes ordered by $p$-values $P_{(j)}$, and the line $0.1\cdot(j/11,217)$, representing the adjusted $p$-value threshold for the Benjamini-Hochberg method. Here the threshold lies at $j=88$, where the vertical dotted line is drawn.}
     \label{fig:bh-threshold}
 \end{figure}
 
+With the False Discovery Rate being capped to at most $0.1$, the Benjamini-Hochberg procedure yields $88$ significant genes, stopping at a maximum $p$-value of \num{7.76e-4}. A full list of the significant genes, along with their respective $p$-values can be found in \path{supplementary/SVASignificantGenes.csv}.
+
+TODO: explain significant genes\\
+
 \section{3. (3 Marks) Defining Binary Logistic Regression With Lasso Penalty}
+
+Binary Logistic
+
 TODO: l1 regression etc etc
 
+One method to optimise the function is GLMNET, as mentioned in Hastie et al. (2009) \cite{HastieTrevor2009EoSL}. However, the method used in this report is an implementation of newGLMNET, an optimization method based on GLMNET, provided by the LIBLINEAR library and implemented in \texttt{scikit-learn}.
+
 \section{4. (3 Marks) Benefits \& Drawbacks of using PCA for Dimensionality Reduction}
-PCA can reduce the dimensionality of the data by transforming its explanatory variables into principal components, whose values are linear combinations of the original explanatory variables that accounts for as much of the variance in the data as possible. In the context of being able to fit this transformed data to a classifier, this comes with the benefit of 
+PCA can reduce the dimensionality of the data by transforming its explanatory variables into principal components, whose values are linear combinations of the original explanatory variables that accounts for as much of the variance in the data as possible. 
+
+In the context of being able to fit this transformed data to a classifier, this comes with several benefits. Some models (for example, LDA or linear regression if unregularized) are entirely unable to fit the original data if $p>n$. PCA brings down the number of features such that $p<n$. This comes with the added benefit of potentially reducing the effect of overfitting, especially if one reduces the amount of principal components to cover at least a certain percentage of the data's variance. Models trained on and evaluating this transformed feature space will also tend to run faster, such is the case with KNN, for example, where its time complexity is $O(np)$. Furthermore, representing the original features as principal components allows for visualisation of the data in lower dimensions whilst still accounting for the features that compose the principal components.
+
+However, reduction of the data's feature space comes with the downside of reduced interpretability. Since each principal component represents a linear combination of multiple features, it makes it harder to identify which individual features show significant difference in value between classes. Furthermore, PCA reduces the dimensionality of the data solely based on maximizing explained variance, and does not take into account the output class. Therefore, principal components that explain a large proportion of the data's variance may not necessarily reflect how powerful those components are in discriminating between classes.
+
+For the problem being explored in this report, I have chosen not to use PCA for the classifiers in the following section. This is because the models chosen (i.e. Lasso-penalized Logistic Regression and Linear-Kernel Support Vector Machine) handle high dimensional data well (Hastie et al. 2009) \cite{HastieTrevor2009EoSL}, and reducing the feature space into principal components in this case will simply make it harder to identify the significant genes that scientists may use as discriminating indicators for cancer diagnosis.
 
 \section{5. Classification}
 
-The models used in this section are the Lasso-penalized Logistic Regression (henceforth LLR) and Source Vector Machine (SVM) Classifiers. 
+The models used in this section are the Lasso-penalized Logistic Regression (henceforth LLR) and Support Vector Machine (SVM) Classifiers. 
 
 For the LLR classifier, the regularisation hyperparameter $\lambda$ for the LLR classifier was determined via nested cross validation, as explained in section 5c.
 
-The SVM classifier utilized a linear kernel, as informed by Hastie et al. (2009) (p.659) \cite{HastieTrevor2009EoSL}, where the authors state that while the aim of fitting nonlinear decision boundaries for SVM classifiers, such models are already sufficiently complex in cases where $p \gg N$. The regularisation hyperparameter $\lambda$ for the SVM classifier is left as the default value $1.0$. This was based on Hastie et al. (2009) (p.658) \cite{HastieTrevor2009EoSL} in which the authors state that error rates for SVM classifiers on high dimensional data are insensitive to the choice of the regularisation hyperparameter. 
+The SVM classifier utilized a linear kernel, as informed by Hastie et al. (2009) (p.659) \cite{HastieTrevor2009EoSL}, where the authors state that while the aim of fitting nonlinear decision boundaries for SVM classifiers, such models are already sufficiently complex in cases where $p \gg N$. The regularisation hyperparameter $C$ for the SVM classifier is left as the default value $1.0$. This was based on Hastie et al. (2009) (p.658) \cite{HastieTrevor2009EoSL} in which the authors state that error rates for SVM classifiers on high dimensional data are insensitive to the choice of the regularisation hyperparameter. 
 
 \subsection{a. (1 Marks) Characterisation of Each Class}
 
-We can make characterisations of each class by examining both the confusion matrices of each classifier, as well as the computed coefficients of each feature. Figures \ref{fig:cm-lasso} and \ref{fig:cm-svm} show the confusion matrices for the LLR and svm classifiers respectively.
+We can make characterisations of each class by examining both the confusion matrices of each classifier, as well as the computed coefficients of each feature. 
+
+Figures \ref{fig:cm-lasso} and \ref{fig:cm-svm} show the confusion matrices for the LLR and SVM classifiers respectively. Notably, the LLR classifier errs more towards false positives (predicting cancer where it should be normal) than the SVM classifier does. Conversely, the SVM classifier errs more towards false negatives. 
+
+The files \path{supplementary/GeneImportanceLasso} and \path{supplementary/GeneImportanceSVM} detail which genes each classifier deems most significant in terms of its ability to discriminate between the normal and cancer classes.
 
 \begin{figure}[H]
     \centering
@@ -107,8 +157,44 @@ We can make characterisations of each class by examining both the confusion matr
 \end{figure}
 
 \subsection{b. (2 Marks) CV-based Error Rate Estimates}
+10-fold Cross Validation was used to compute the overall and class-specific error rates of each classifier. The results are as follows:
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lrrrr}
+    \toprule
+     & precision & recall & f1-score & support \\
+    \midrule
+    cancer & 0.82 & 0.67 & 0.74 & 67 \\
+    normal & 0.67 & 0.81 & 0.73 & 54 \\
+    accuracy & & & 0.73 & 121 \\
+    \bottomrule
+    \end{tabular}
+    \caption{LRR 10-fold CV error rates}
+    \label{tab:errors-lrr}
+\end{table}
+
+\begin{table}[H]
+    \centering
+    \begin{tabular}{lrrrr}
+    \toprule
+     & precision & recall & f1-score & support \\
+    \midrule
+    cancer & 0.74 & 0.72 & 0.73 & 67\\
+    normal & 0.66 & 0.68 & 0.67 & 54\\
+    accuracy & & & 0.70 & 121 \\
+    \bottomrule
+    \end{tabular}
+    \caption{SVM 10-fold CV error rates}
+    \label{tab:errors-svm}
+\end{table}
+
+Both classifiers, when trained on all the data, perfectly predict the class of each sample in the dataset, thus the error rates in this case are trivial and are not included.
 
 \subsection{c. (3 Marks) Finding The Optimal Value of Lambda}
+Nested Cross Validation was done over a predetermined search space of potential values of $\lambda$ for the LRR classifier. The search space consists of 20 potential values for lambda, spread evenly on a log scale between $\num{1e-3}$ to $\num{1e4}$. A full list of the search space can be found in the appendix as Table \ref{tab:lambda-search-space}. 
+
+The accuracy of the LLR classifier over all folds for all values of $\lambda$ in the search space were recorded, and the value of $\lambda$ which yielded the best accuracy score was then used for the final LLR classifier. The error rates reported in Table \ref{tab:errors-lrr} represent the inner-loop 10-fold CV where the optimal $\lambda$ was used. In this case, $\lambda=61.58$ showed the greatest reported CV accuracy estimates.
 
 \begin{figure}[H]
     \centering
@@ -117,16 +203,21 @@ We can make characterisations of each class by examining both the confusion matr
     \label{fig:lambda-search}
 \end{figure}
 
+A list of the top 30 genes ordered by importance according to their corresponding coefficients in the final LLR classifier is listed in the appendix as Table \ref{tab:genes-lasso}. A more complete list of all the sorted genes and their coefficients is available in \path{supplementary/GeneImportanceLasso} as a commas-separated values file. In all, the LLR classifier identified 394 important genes, in that those genes had nonzero coefficients in the classifier.
+
 \section{6. (4 Marks) Results Comparison}
 
 Figures \ref{fig:pp-pca}, \ref{fig:pp-pca-significant}, \ref{fig:pp-lasso}, \ref{fig:pp-svm}, \ref{fig:pp-sva} in the Appendix (also available in \path{figures/PairPlot*} in the supplementary files) show plots of class distributions over pairs of features and principal components deemed significant by each analytical method. From these pair plots we can see a visual representation of how well these methods identify genes that are expressed differently between the cancer and normal groups, both individually (in each of the plots' main diagonals) and pair-wise.
 
-Visually, it can be observed that 
+Visually, it can be observed that TODO
 
+To better quantify the discriminative power of the genes produced by each of the methods used, a Logistic Regression classifier with L2 regularisation was fit to the top 10 genes TODO
 
+TODO: why are these important to the biologists? see section 1
+
+AUC of 0.88 signifies good separation between the classes
 
 \newpage
-% \section{References}
 \printbibliography[
     heading=bibintoc,
     title={References}
@@ -136,9 +227,6 @@ Visually, it can be observed that
 \onecolumn
 \section{Appendix}
 \subsection{5c. Lambda Search Space}
-20 potential values for $\lambda$, spread evenly between $\num{1e-3}$ to $\num{1e4}$:
-
-
 \begin{table}[H]
     \centering
     \begin{tabular}{cccc}
@@ -148,10 +236,11 @@ Visually, it can be observed that
         2.63e+01& 6.15e+01& 1.43e+02& 3.35e+02 \\
         7.84e+02& 1.83e+03& 4.28e+03& 1.00e+04 \\
     \end{tabular}
+    \caption{20 potential values for $\lambda$, spread evenly on a log scale between $\num{1e-3}$ to $\num{1e4}$}
+    \label{tab:lambda-search-space}
 \end{table}
 
 \subsection{5c. Gene Importance}
-
 \begin{table}[h!]
     \begin{tabular}{lr}
     \toprule
@@ -189,6 +278,8 @@ Visually, it can be observed that
     104116 & 0.282697 \\
     \bottomrule
     \end{tabular}
+    \caption{Top 30 genes sorted by importance based on the absolute value of its coefficient in the LLR classifier. A full list of these genes and their respective coefficients can be found in \path{supplementary/GeneImportanceLasso}}
+    \label{tab:genes-lasso}
 \end{table}
 
 \subsection{6. Class Distribution Pair Plots}
